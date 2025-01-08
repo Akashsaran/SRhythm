@@ -34,7 +34,7 @@
   <body>
     <div class="game-container">
       <h1>Song Guess Game</h1>
-      <button id="loginBtn">Sign in</button>
+      <button id="loginBtn">Sign in with Spotify</button>
       <div id="game" style="display: none">
         <h2>Select Playlist</h2>
         <select id="playlistDropdown"></select
@@ -60,12 +60,6 @@
       let score = 0;
       let lives = 3;
 
-      // Redirect to Spotify if access token is not available
-      if (!accessToken) {
-        window.location.href =
-          "https://accounts.spotify.com/authorize?client_id=518660d4be8a4f60a36e270afefa1d6d&response_type=token&redirect_uri=https://akashsaran.github.io/SRhythm/&scope=playlist-read-private";
-      }
-
       document
         .getElementById("loginBtn")
         .addEventListener("click", loginToSpotify);
@@ -77,11 +71,13 @@
         .addEventListener("click", checkGuess);
 
       function loginToSpotify() {
+        // Redirect to Spotify's authentication page
         window.location.href =
           "https://accounts.spotify.com/authorize?client_id=518660d4be8a4f60a36e270afefa1d6d&response_type=token&redirect_uri=https://akashsaran.github.io/SRhythm/&scope=playlist-read-private";
       }
 
       function startGame() {
+        // Fetch the playlists after successful login and show them
         fetchPlaylists().then((playlists) => {
           const playlistDropdown = document.getElementById("playlistDropdown");
           playlists.forEach((playlist) => {
@@ -104,11 +100,12 @@
         })
           .then((response) => response.json())
           .then((data) => {
-            return data.items || [];
+            return data.items || []; // Ensure data.items exists
           });
       }
 
       function startNewSong() {
+        // Get a random song from the selected playlist and play the first second
         fetch(
           `https://api.spotify.com/v1/playlists/${currentPlaylist.id}/tracks`,
           {
@@ -130,7 +127,7 @@
 
       function updateSongDropdown(songList) {
         const songDropdown = document.getElementById("songDropdown");
-        songDropdown.innerHTML = "";
+        songDropdown.innerHTML = ""; // Clear existing options
         songList.forEach((song) => {
           const option = document.createElement("option");
           option.textContent = song;
@@ -143,21 +140,27 @@
         const songName = currentSong.name;
 
         if (selectedSong === songName) {
+          // Correct answer
           updateScoreAndLives(true);
           startNewSong();
         } else {
+          // Incorrect answer
           updateScoreAndLives(false);
         }
       }
 
       function updateScoreAndLives(isCorrect) {
         if (isCorrect) {
-          score += 1000;
+          // Correct guess
+          score += 1000; // Adjust the score based on the time
           document.getElementById("score").textContent = `Score: ${score}`;
         } else {
+          // Incorrect guess
           lives -= 1;
           document.getElementById("lives").textContent = `Lives: ${lives}`;
+
           if (lives <= 0) {
+            // Game over
             alert("Game over! Final Score: " + score);
             resetGame();
           }
@@ -173,6 +176,7 @@
         document.getElementById("game").style.display = "block";
       }
 
+      // Handle token after redirect
       if (window.location.hash) {
         const hash = window.location.hash.substring(1);
         const params = new URLSearchParams(hash);
