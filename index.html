@@ -3,187 +3,102 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SRhythm</title>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        margin: 0;
-        padding: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: 100vh;
-      }
-      .game-container {
-        text-align: center;
-      }
-      button {
-        padding: 10px 20px;
-        font-size: 16px;
-      }
-      #score {
-        font-size: 24px;
-      }
-      #lives {
-        font-size: 18px;
-        color: red;
-      }
-    </style>
+    <title>Spotify Album Viewer</title>
   </head>
   <body>
-    <div class="game-container">
-      <h1>Song Guess Game</h1>
-      <button id="loginBtn">Sign in with Spotify</button>
-      <div id="game" style="display: none">
-        <h2>Select Playlist</h2>
-        <select id="playlistDropdown"></select
-        ><br /><br />
-        <button id="startGameBtn">Start Game</button>
-      </div>
-      <div id="inGame" style="display: none">
-        <h2>Guess the Song</h2>
-        <audio id="audioPlayer" controls></audio>
-        <select id="songDropdown"></select
-        ><br /><br />
-        <button id="submitGuessBtn">Submit Guess</button>
-        <p id="score">Score: 0</p>
-        <p id="lives">Lives: 3</p>
-      </div>
-    </div>
+    <h1>Connect to Spotify</h1>
+    <button onclick="loginToSpotify()">Login with Spotify</button>
 
-    <script src="https://sdk.scdn.co/spotify-player.js"></script>
+    <h2>Choose an Album:</h2>
+    <select id="albumDropdown" onchange="getTracks()">
+      <option value="">Select an album</option>
+    </select>
+
+    <h3>Tracks:</h3>
+    <ol id="trackList"></ol>
+
     <script>
-      let accessToken;
-      let currentPlaylist;
-      let currentSong;
-      let score = 0;
-      let lives = 3;
+      const clientId = "518660d4be8a4f60a36e270afefa1d6d";
+      const redirectUri = "https://akashsaran.github.io/SRhythm/";
+      const scope = "user-library-read"; // You can modify scope if needed
 
-      document
-        .getElementById("loginBtn")
-        .addEventListener("click", loginToSpotify);
-      document
-        .getElementById("startGameBtn")
-        .addEventListener("click", startGame);
-      document
-        .getElementById("submitGuessBtn")
-        .addEventListener("click", checkGuess);
-
+      // Login function - redirects user to Spotify login page
       function loginToSpotify() {
-        // Redirect to Spotify's authentication page
-        window.location.href =
-          "https://accounts.spotify.com/authorize?client_id=518660d4be8a4f60a36e270afefa1d6d&response_type=token&redirect_uri=https://akashsaran.github.io/SRhythm/&scope=playlist-read-private";
+        const authUrl = `https://accounts.spotify.com/authorize?response_type=token&client_id=${clientId}&redirect_uri=${encodeURIComponent(
+          redirectUri
+        )}&scope=${encodeURIComponent(scope)}`;
+        window.location.href = authUrl;
       }
 
-      function startGame() {
-        // Fetch the playlists after successful login and show them
-        fetchPlaylists().then((playlists) => {
-          const playlistDropdown = document.getElementById("playlistDropdown");
-          playlists.forEach((playlist) => {
-            const option = document.createElement("option");
-            option.value = playlist.id;
-            option.textContent = playlist.name;
-            playlistDropdown.appendChild(option);
-          });
-          currentPlaylist = playlists[0]; // Select the first playlist by default
-          document.getElementById("game").style.display = "none";
-          document.getElementById("inGame").style.display = "block";
-        });
+      // Function to parse the URL fragment to get the access token
+      function getAccessToken() {
+        const urlParams = new URLSearchParams(
+          window.location.hash.substring(1)
+        );
+        return urlParams.get("access_token");
       }
 
-      function fetchPlaylists() {
-        return fetch("https://api.spotify.com/v1/me/playlists", {
+      // Function to get the albums the user has saved
+      async function getAlbums() {
+        const accessToken = getAccessToken();
+        if (!accessToken) {
+          alert("Please log in to Spotify first");
+          return;
+        }
+
+        const response = await fetch("https://api.spotify.com/v1/me/albums", {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
-        })
-          .then((response) => response.json())
-          .then((data) => {
-            return data.items || []; // Ensure data.items exists
-          });
+        });
+        const data = await response.json();
+        const albumDropdown = document.getElementById("albumDropdown");
+        albumDropdown.innerHTML = '<option value="">Select an album</option>'; // Reset dropdown
+
+        data.items.forEach((item) => {
+          const option = document.createElement("option");
+          option.value = item.album.id;
+          option.textContent = item.album.name;
+          albumDropdown.appendChild(option);
+        });
       }
 
-      function startNewSong() {
-        // Get a random song from the selected playlist and play the first second
-        fetch(
-          `https://api.spotify.com/v1/playlists/${currentPlaylist.id}/tracks`,
+      // Function to get tracks from a selected album
+      async function getTracks() {
+        const accessToken = getAccessToken();
+        if (!accessToken) {
+          alert("Please log in to Spotify first");
+          return;
+        }
+
+        const albumId = document.getElementById("albumDropdown").value;
+        if (!albumId) return;
+
+        const response = await fetch(
+          `https://api.spotify.com/v1/albums/${albumId}/tracks`,
           {
             headers: {
               Authorization: `Bearer ${accessToken}`,
             },
           }
-        )
-          .then((response) => response.json())
-          .then((data) => {
-            const track =
-              data.items[Math.floor(Math.random() * data.items.length)].track;
-            currentSong = track;
-            document.getElementById("audioPlayer").src = track.preview_url;
-            document.getElementById("audioPlayer").play();
-            updateSongDropdown(data.items.map((item) => item.track.name));
-          });
-      }
+        );
+        const data = await response.json();
+        const trackList = document.getElementById("trackList");
+        trackList.innerHTML = ""; // Reset the track list
 
-      function updateSongDropdown(songList) {
-        const songDropdown = document.getElementById("songDropdown");
-        songDropdown.innerHTML = ""; // Clear existing options
-        songList.forEach((song) => {
-          const option = document.createElement("option");
-          option.textContent = song;
-          songDropdown.appendChild(option);
+        data.items.forEach((track, index) => {
+          const li = document.createElement("li");
+          li.textContent = `${index + 1}. ${track.name}`;
+          trackList.appendChild(li);
         });
       }
 
-      function checkGuess() {
-        const selectedSong = document.getElementById("songDropdown").value;
-        const songName = currentSong.name;
-
-        if (selectedSong === songName) {
-          // Correct answer
-          updateScoreAndLives(true);
-          startNewSong();
-        } else {
-          // Incorrect answer
-          updateScoreAndLives(false);
+      // Automatically attempt to get albums after the page loads
+      window.onload = function () {
+        if (getAccessToken()) {
+          getAlbums();
         }
-      }
-
-      function updateScoreAndLives(isCorrect) {
-        if (isCorrect) {
-          // Correct guess
-          score += 1000; // Adjust the score based on the time
-          document.getElementById("score").textContent = `Score: ${score}`;
-        } else {
-          // Incorrect guess
-          lives -= 1;
-          document.getElementById("lives").textContent = `Lives: ${lives}`;
-
-          if (lives <= 0) {
-            // Game over
-            alert("Game over! Final Score: " + score);
-            resetGame();
-          }
-        }
-      }
-
-      function resetGame() {
-        lives = 3;
-        score = 0;
-        document.getElementById("score").textContent = `Score: ${score}`;
-        document.getElementById("lives").textContent = `Lives: ${lives}`;
-        document.getElementById("inGame").style.display = "none";
-        document.getElementById("game").style.display = "block";
-      }
-
-      // Handle token after redirect
-      if (window.location.hash) {
-        const hash = window.location.hash.substring(1);
-        const params = new URLSearchParams(hash);
-        accessToken = params.get("access_token");
-        document.getElementById("loginBtn").style.display = "none";
-        document.getElementById("game").style.display = "block";
-      }
+      };
     </script>
   </body>
 </html>
